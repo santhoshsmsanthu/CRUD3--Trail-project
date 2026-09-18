@@ -19,6 +19,7 @@ const resources = {
   articles: {
     label: "Articles",
     endpoint: "/articles",
+    requiresLogin: true,
     fields: [
       ["title", "Title"],
       ["description", "Description"],
@@ -30,6 +31,7 @@ const resources = {
   channels: {
     label: "Channels",
     endpoint: "/channels",
+    requiresLogin: true,
     fields: [
       ["name", "Channel name"],
       ["description", "Description"],
@@ -40,6 +42,7 @@ const resources = {
   categories: {
     label: "Categories",
     endpoint: "/categories",
+    requiresLogin: true,
     fields: [
       ["name", "Category name"],
       ["description", "Description"],

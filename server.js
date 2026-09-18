@@ -70,7 +70,8 @@ const articleSchema = new mongoose.Schema({
 //category schema
 const categorySchema = new mongoose.Schema({
     name: String,
-    description: String
+    description: String,
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 });
 
 //category-channel schema
@@ -393,7 +394,7 @@ app.get('/profile/me', authMiddleware, async (req, res) => {
 // Get all profiles (authenticated users)
 app.get('/profiles', authMiddleware, async (req, res) => {
     try {
-        const profiles = await Profile.find().populate('user', '-password');
+        const profiles = await Profile.find({ user: req.user._id }).populate('user', '-password');
         return res.status(200).json({ count: profiles.length, profiles });
     } catch (err) {
         console.error(err);
@@ -472,10 +473,10 @@ app.post('/channels', authMiddleware, async (req, res) => {
     }
 });
 
-// Get all channels (public)
-app.get('/channels', async (req, res) => {
+// Get my channels
+app.get('/channels', authMiddleware, async (req, res) => {
     try {
-        const channels = await Channel.find().populate('user', 'name email');
+        const channels = await Channel.find({ user: req.user._id }).populate('user', 'name email');
         return res.status(200).json({ count: channels.length, channels });
     } catch (err) {
         console.error(err);
@@ -557,7 +558,7 @@ app.post('/articles', authMiddleware, async (req, res) => {
         const { channel, title, link, description } = req.body;
 
          // Verify channel exists
-        const existingChannel = await Channel.findById(channel);
+        const existingChannel = await Channel.findOne({ _id: channel, user: req.user._id });
         if (!existingChannel) {
             return res.status(404).json({ message: 'Channel not found' });
         }
@@ -574,10 +575,10 @@ app.post('/articles', authMiddleware, async (req, res) => {
     }
 });
 
-// Get all articles (public)
-app.get('/articles', async (req, res) => {
+// Get my articles
+app.get('/articles', authMiddleware, async (req, res) => {
     try {
-        const articles = await Article.find()
+        const articles = await Article.find({ user: req.user._id })
             .populate('user', 'name email')
             .populate('channel', 'name');
         return res.status(200).json({ count: articles.length, articles });
@@ -587,10 +588,10 @@ app.get('/articles', async (req, res) => {
     }
 });
 
-// Get article by ID (public)
-app.get('/articles/:id', async (req, res) => {
+// Get my article by ID
+app.get('/articles/:id', authMiddleware, async (req, res) => {
     try {
-        const article = await Article.findById(req.params.id)
+        const article = await Article.findOne({ _id: req.params.id, user: req.user._id })
             .populate('user', 'name email')
             .populate('channel', 'name');
         if (!article) {
@@ -661,7 +662,7 @@ app.post('/categories', authMiddleware, async (req, res) => {
         }
 
         const { name, description } = req.body;
-        const category = new Category({ name, description });
+        const category = new Category({ name, description, user: req.user._id });
         await category.save();
         return res.status(201).json({ message: 'Category created successfully', category });
     } catch (err) {
@@ -670,10 +671,10 @@ app.post('/categories', authMiddleware, async (req, res) => {
     }
 });
 
-// Get all categories (public)
-app.get('/categories', async (req, res) => {
+// Get my categories
+app.get('/categories', authMiddleware, async (req, res) => {
     try {
-        const categories = await Category.find();
+        const categories = await Category.find({ user: req.user._id });
         return res.status(200).json({ count: categories.length, categories });
     } catch (err) {
         console.error(err);
@@ -681,10 +682,10 @@ app.get('/categories', async (req, res) => {
     }
 });
 
-// Get category by ID (public)
-app.get('/categories/:id', async (req, res) => {
+// Get my category by ID
+app.get('/categories/:id', authMiddleware, async (req, res) => {
     try {
-        const category = await Category.findById(req.params.id);
+        const category = await Category.findOne({ _id: req.params.id, user: req.user._id });
         if (!category) {
             return res.status(404).json({ message: 'Category not found' });
         }
@@ -703,9 +704,9 @@ app.put('/categories/:id', authMiddleware, async (req, res) => {
             return res.status(400).json({ message: error.details[0].message });
         }
 
-        const category = await Category.findByIdAndUpdate(
-            req.params.id,
-            req.body,
+        const category = await Category.findOneAndUpdate(
+            { _id: req.params.id, user: req.user._id },
+            { name: req.body.name, description: req.body.description },
             { new: true, runValidators: true }
         );
         if (!category) {
@@ -721,7 +722,10 @@ app.put('/categories/:id', authMiddleware, async (req, res) => {
 // Delete category (authenticated users)
 app.delete('/categories/:id', authMiddleware, async (req, res) => {
     try {
-        const category = await Category.findByIdAndDelete(req.params.id);
+        const category = await Category.findOneAndDelete({
+            _id: req.params.id,
+            user: req.user._id
+        });
         if (!category) {
             return res.status(404).json({ message: 'Category not found' });
         }
@@ -745,8 +749,8 @@ app.post('/category-channels', authMiddleware, async (req, res) => {
 
          // Verify both exist
         const [catExists, chanExists] = await Promise.all([
-            Category.findById(category),
-            Channel.findById(channel)
+            Category.findOne({ _id: category, user: req.user._id }),
+            Channel.findOne({ _id: channel, user: req.user._id })
         ]);
         if (!catExists) return res.status(404).json({ message: 'Category not found' });
         if (!chanExists) return res.status(404).json({ message: 'Channel not found' });
@@ -772,7 +776,7 @@ app.post('/category-channels', authMiddleware, async (req, res) => {
 // Get all links (authenticated users)
 app.get('/category-channels', authMiddleware, async (req, res) => {
     try {
-        const links = await CategoryChannel.find()
+        const links = await CategoryChannel.find({ user: req.user._id })
             .populate('category', 'name')
             .populate('channel', 'name')
             .populate('user', 'name email');
